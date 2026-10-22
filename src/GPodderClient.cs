@@ -42,7 +42,7 @@ namespace Emby.GPodderSync
 
         public GPodderClient(PluginConfiguration cfg)
         {
-            _base = (cfg.ServerUrl ?? string.Empty).Trim().TrimEnd('/');
+            _base = ServerUrlOf(cfg);
             _user = Uri.EscapeDataString((cfg.Username ?? string.Empty).Trim());
             _deviceId = DeviceIdOf(cfg);
             _device = Uri.EscapeDataString(_deviceId);
@@ -52,6 +52,13 @@ namespace Emby.GPodderSync
 
         public static bool IsConfigured(PluginConfiguration cfg) =>
             !string.IsNullOrWhiteSpace(cfg.ServerUrl) && !string.IsNullOrWhiteSpace(cfg.Username) && !string.IsNullOrEmpty(cfg.Password);
+
+        /// <summary>ServerUrl without a trailing slash; "host:8080" is taken as "http://host:8080".</summary>
+        public static string ServerUrlOf(PluginConfiguration cfg)
+        {
+            var url = (cfg.ServerUrl ?? string.Empty).Trim().TrimEnd('/');
+            return url.Length == 0 || FeedIndex.IsHttp(url) ? url : "http://" + url;
+        }
 
         public static string DeviceIdOf(PluginConfiguration cfg) =>
             string.IsNullOrWhiteSpace(cfg.DeviceId) ? "emby" : cfg.DeviceId.Trim();
