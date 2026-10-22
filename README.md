@@ -27,7 +27,8 @@ AntennaPod ──gpodder sync──► gpodder server (PodBridge) ◄──gpodd
 |---|---|
 | `dotnet build` | Verified (0 warnings, 0 errors) |
 | gpodder calls (device, subscriptions, feeds, push, pull, wrong password) | Verified against a local PodBridge |
-| Loading in Emby, finding podcast items, push and pull inside Emby | **Not yet tested** in a real Emby server |
+| Loading in Emby, finding podcast items by URL | Working on Emby 4.10.1 (Linux): 2,694 of 2,751 server episodes matched on the first run |
+| AntennaPod → Emby and Emby → AntennaPod progress | Working on Emby 4.10.1 with PodBridge and AntennaPod |
 
 Check the Emby log for lines starting with `GPodderSync:`. If the pull says Emby has no audio items with an
 http(s) path, your podcast plugin stores episodes differently and matching needs adjusting.
@@ -75,6 +76,10 @@ get the DLL attached by GitHub Actions.
   in Emby and PodBridge's in AntennaPod) won't match.
 * The pull reads the whole action history each run; fine for one person's listening, not tuned for huge histories.
 * Progress sync uses timestamps; if the clocks of the devices disagree, an older state can win.
+* A player that only pauses (e.g. Emby for Android) is reported as stopped by Emby after about a minute of idling,
+  so the position is sent then.
+* With `SyncEmbyUsers` empty, the server's progress is applied to **every** Emby user. Set it to your own user
+  name if others share the Emby server.
 * Subscriptions are not synced; add the same feeds to Emby and AntennaPod yourself.
 
 ## Project layout
