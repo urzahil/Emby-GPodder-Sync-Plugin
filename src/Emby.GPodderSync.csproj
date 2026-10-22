@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>Emby.GPodderSync</AssemblyName>
+    <RootNamespace>Emby.GPodderSync</RootNamespace>
+    <Version>0.1.0</Version>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Only Emby.GPodderSync.dll should end up in the plugins folder. Emby supplies every dependency itself. -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Emby SDK. 4.9.1.90 is the newest non-beta release on nuget.org (Emby Server 4.9.x). -->
+    <PackageReference Include="MediaBrowser.Server.Core" Version="4.9.1.90" />
+    <PackageReference Include="System.Memory" Version="4.6.0" ExcludeAssets="runtime" />
+    <!-- Compile-time only: Emby Server ships System.Text.Json at runtime. -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>
