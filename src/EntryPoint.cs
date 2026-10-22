@@ -49,10 +49,10 @@ namespace Emby.GPodderSync
                 plugin.SaveConfiguration();
             }
 
-            _log.Info("GPodderSync: configuration file is {0}", plugin.ConfigurationFilePath);
+            _log.Info("configuration file is {0}", plugin.ConfigurationFilePath);
             if (!GPodderClient.IsConfigured(plugin.Configuration))
             {
-                _log.Warn("GPodderSync: not configured yet. Stop Emby, fill in ServerUrl, Username and Password in that file, then start Emby.");
+                _log.Warn("not configured yet. Stop Emby, fill in ServerUrl, Username and Password in that file, then start Emby.");
             }
         }
 
@@ -93,7 +93,7 @@ namespace Emby.GPodderSync
                 if (total <= 0 || position <= 0)
                 {
                     // Unknown length, or marked unplayed (gpodder clients can't clear progress either): nothing to send.
-                    _log.Debug("GPodderSync: nothing to send for '{0}' (position {1}s of {2}s)", e.Item.Name, position, total);
+                    _log.Debug("nothing to send for '{0}' (position {1}s of {2}s)", e.Item.Name, position, total);
                     return;
                 }
 
@@ -112,7 +112,7 @@ namespace Emby.GPodderSync
             }
             catch (Exception ex)
             {
-                _log.Warn("GPodderSync: progress handler failed: {0}", ex.Message);
+                _log.Warn("progress handler failed: {0}", ex.Message);
             }
         }
 
@@ -131,16 +131,16 @@ namespace Emby.GPodderSync
 
                 if (feed == null)
                 {
-                    _log.Info("GPodderSync: '{0}' is not in any feed subscribed on the gpodder server; not sent ({1}).", name, FeedIndex.RedactKey(episode));
+                    _log.Info("'{0}' is not in any feed subscribed on the gpodder server; not sent ({1}).", name, FeedIndex.RedactKey(episode));
                     return;
                 }
 
                 await client.PostPlayAsync(feed, episode, position, total, CancellationToken.None).ConfigureAwait(false);
-                _log.Info("GPodderSync: sent '{0}' at {1}s of {2}s", name, position, total);
+                _log.Info("sent '{0}' at {1}s of {2}s", name, position, total);
             }
             catch (Exception ex)
             {
-                _log.Warn("GPodderSync: could not send progress for '{0}': {1}", name, ex.Message);
+                _log.Warn("could not send progress for '{0}': {1}", name, ex.Message);
             }
         }
 

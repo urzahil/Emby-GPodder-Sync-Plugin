@@ -55,12 +55,12 @@ namespace Emby.GPodderSync
                     catch (Exception ex)
                     {
                         failed++;
-                        log.Warn("GPodderSync: could not read feed {0}: {1}", RedactKey(feed), ex.Message);
+                        log.Warn("could not read feed {0}: {1}", RedactKey(feed), ex.Message);
                     }
                 }
 
                 _episodeToFeed = map;
-                log.Info("GPodderSync: {0} subscribed feed(s) read, {1} episode(s) known, {2} feed(s) failed.", feeds.Count, map.Count, failed);
+                log.Info("{0} subscribed feed(s) read, {1} episode(s) known, {2} feed(s) failed.", feeds.Count, map.Count, failed);
             }
             finally
             {

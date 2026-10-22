@@ -53,7 +53,7 @@ namespace Emby.GPodderSync
             var cfg = Plugin.Instance.Configuration;
             if (!GPodderClient.IsConfigured(cfg))
             {
-                _log.Warn("GPodderSync: sync skipped: ServerUrl, Username or Password missing in the configuration file.");
+                _log.Warn("sync skipped: ServerUrl, Username or Password missing in the configuration file.");
                 return;
             }
 
@@ -69,7 +69,7 @@ namespace Emby.GPodderSync
             var users = _users.GetUserList(new UserQuery()).Where(u => wanted.Count == 0 || wanted.Contains(u.Name)).ToList();
             if (users.Count == 0)
             {
-                _log.Warn("GPodderSync: no Emby user matches SyncEmbyUsers '{0}'.", cfg.SyncEmbyUsers);
+                _log.Warn("no Emby user matches SyncEmbyUsers '{0}'.", cfg.SyncEmbyUsers);
                 return;
             }
 
@@ -104,11 +104,11 @@ namespace Emby.GPodderSync
             }
 
             _log.Info(
-                "GPodderSync: progress pull: {0} episode(s) with a play position on the server, {1} not found among Emby's {2} podcast episode(s), {3} Emby state(s) updated for {4} user(s).",
+                "progress pull: {0} episode(s) with a play position on the server, {1} not found among Emby's {2} podcast episode(s), {3} Emby state(s) updated for {4} user(s).",
                 plays.Count, notInEmby, items.Count, applied, users.Count);
             if (plays.Count > 0 && items.Count == 0)
             {
-                _log.Warn("GPodderSync: Emby has no audio items whose path is an http(s) URL, so nothing can be matched. Check how your podcast plugin stores episodes.");
+                _log.Warn("Emby has no audio items whose path is an http(s) URL, so nothing can be matched. Check how your podcast plugin stores episodes.");
             }
 
             progress.Report(100);
@@ -182,7 +182,7 @@ namespace Emby.GPodderSync
 
             data.LastPlayedDate = play.Timestamp.HasValue ? new DateTimeOffset(play.Timestamp.Value, TimeSpan.Zero) : DateTimeOffset.UtcNow;
             _userData.SaveUserData(user, item, data, UserDataSaveReason.Import, CancellationToken.None);
-            _log.Info("GPodderSync: '{0}' for {1}: {2} (from {3})", item.Name, user.Name, finished ? "played" : play.Position + "s", play.Device);
+            _log.Info("'{0}' for {1}: {2} (from {3})", item.Name, user.Name, finished ? "played" : play.Position + "s", play.Device);
             return true;
         }
     }
