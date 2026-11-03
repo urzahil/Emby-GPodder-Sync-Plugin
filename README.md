@@ -60,7 +60,7 @@ get the DLL attached by GitHub Actions.
 
    | Setting | Meaning |
    |---|---|
-   | `ServerUrl` | Address of the gpodder server as Emby reaches it, e.g. `http://homeserver:8080` |
+   | `ServerUrl` | Address of the gpodder server as Emby reaches it, e.g. `http://homeserver:8080`. Use the exact address the server answers on: the plugin doesn't follow redirects (say from `http://` to `https://`) and reports them as an error naming the right address |
    | `Username` / `Password` | gpodder login (for PodBridge: `GPODDER_USERNAME` / `GPODDER_PASSWORD`). Plain text in this file — keep it private |
    | `DeviceId` | Device name this Emby uses on the server; default `emby` |
    | `SyncEmbyUsers` | Comma-separated Emby user names to sync; empty = all users. All of them share the one gpodder account |
