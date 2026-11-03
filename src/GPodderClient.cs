@@ -31,8 +31,15 @@ namespace Emby.GPodderSync
     {
         private const string TimestampFormat = "yyyy-MM-dd'T'HH:mm:ss";
 
-        // One HttpClient for the lifetime of the server, as recommended.
+        // One HttpClient for the lifetime of the server, as recommended. Used for RSS feeds, which may redirect.
         private static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
+        // gpodder API calls don't follow redirects: HttpClient would turn a redirected POST into a GET and drop the
+        // login, so the server answers 405 or 401 and the real problem (a wrong ServerUrl) stays hidden.
+        private static readonly HttpClient Api = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
 
         private readonly string _base;
         private readonly string _user;
@@ -171,12 +178,22 @@ namespace Emby.GPodderSync
                     request.Content = new StringContent(json, Encoding.UTF8, "application/json");
                 }
 
-                using (var response = await Http.SendAsync(request, ct).ConfigureAwait(false))
+                using (var response = await Api.SendAsync(request, ct).ConfigureAwait(false))
                 {
+                    var status = (int)response.StatusCode;
+                    if (status >= 300 && status < 400)
+                    {
+                        var target = response.Headers.Location == null
+                            ? "(no Location header)"
+                            : new Uri(request.RequestUri, response.Headers.Location).ToString();
+                        throw new HttpRequestException(
+                            $"{method} {path} was redirected (HTTP {status}) to {target}. Set ServerUrl to the address the server redirects to.");
+                    }
+
                     var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                     if (!response.IsSuccessStatusCode)
                     {
-                        throw new HttpRequestException($"{method} {path} returned HTTP {(int)response.StatusCode}");
+                        throw new HttpRequestException($"{method} {path} returned HTTP {status}");
                     }
 
                     return body;
