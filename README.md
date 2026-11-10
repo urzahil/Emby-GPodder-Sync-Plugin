@@ -18,17 +18,6 @@ AntennaPod ──gpodder sync──► gpodder server ◄──gpodder sync─�
   episode and applies it to the matching Emby item, but only when it is newer than Emby's own state and didn't come
   from Emby itself. An episode with 30 s or less left (or 95 % played) is marked played.
 
-## Status
-
-| Area | State |
-|---|---|
-| `dotnet build` | Verified (0 warnings, 0 errors) |
-| gpodder calls (device, subscriptions, feeds, push, pull, wrong password) | Verified against a local PodBridge |
-| Loading in Emby, finding podcast items by URL | Working on Emby 4.10.1 (Linux): 2,694 of 2,751 server episodes matched on the first run |
-| AntennaPod → Emby and Emby → AntennaPod progress | Working on Emby 4.10.1 with PodBridge and AntennaPod |
-
-Check the Emby log for lines starting with `GPodderSync:`. If the pull says Emby has no audio items with an
-http(s) path, your podcast plugin stores episodes differently and matching needs adjusting.
 
 ## Target
 
