@@ -1,13 +1,11 @@
 # Emby gPodder Sync plugin
 
-An Emby Server plugin that syncs **podcast listening progress** with a **gpodder v2 sync server**, such as
-[PodBridge](https://github.com/urzahil/PodBridge). AntennaPod (or any other gpodder client) talks to the same
-server, so a podcast half-listened on the phone resumes at the same point in Emby, and the other way round.
+An Emby Server plugin that syncs **podcast listening progress** with a **gpodder v2 sync server**. AntennaPod (or any other gpodder client) talks to the same server, so a podcast half-listened on the phone resumes at the same point in Emby, and the other way round.
 
 ## How it works
 
 ```
-AntennaPod ──gpodder sync──► gpodder server (PodBridge) ◄──gpodder sync── Emby + this plugin
+AntennaPod ──gpodder sync──► gpodder server ◄──gpodder sync── Emby + this plugin
 ```
 
 * **Episodes are matched by their audio URL.** Emby and AntennaPod must subscribe to **exactly the same feed
@@ -19,7 +17,6 @@ AntennaPod ──gpodder sync──► gpodder server (PodBridge) ◄──gpodd
 * **Server → Emby:** a scheduled task (at startup and every 5 minutes) reads the latest play position of every
   episode and applies it to the matching Emby item, but only when it is newer than Emby's own state and didn't come
   from Emby itself. An episode with 30 s or less left (or 95 % played) is marked played.
-* With PodBridge, positions of Il Post episodes sent by Emby also reach ilpost.it, exactly as AntennaPod's do.
 
 ## Status
 
@@ -61,7 +58,7 @@ get the DLL attached by GitHub Actions.
    | Setting | Meaning |
    |---|---|
    | `ServerUrl` | Address of the gpodder server as Emby reaches it, e.g. `http://homeserver:8080`. Use the exact address the server answers on: the plugin doesn't follow redirects (say from `http://` to `https://`) and reports them as an error naming the right address |
-   | `Username` / `Password` | gpodder login (for PodBridge: `GPODDER_USERNAME` / `GPODDER_PASSWORD`). Plain text in this file — keep it private |
+   | `Username` / `Password` | gpodder login. Plain text in this file — keep it private |
    | `DeviceId` | Device name this Emby uses on the server; default `emby` |
    | `SyncEmbyUsers` | Comma-separated Emby user names to sync; empty = all users. All of them share the one gpodder account |
    | `FinishedRemainingSeconds` / `FinishedRatio` | When an episode counts as finished: default 30 s left or 95 % played |
@@ -72,8 +69,7 @@ get the DLL attached by GitHub Actions.
 ## Known limitations
 
 * **Marking an episode unplayed is not synced**, in either direction (gpodder clients can't clear progress).
-* Episodes are matched only by exact audio URL. Different feed addresses for the same podcast (e.g. Il Post's own RSS
-  in Emby and PodBridge's in AntennaPod) won't match.
+* Episodes are matched only by exact audio URL. Different feed addresses for the same podcast .
 * The pull reads the whole action history each run; fine for one person's listening, not tuned for huge histories.
 * Progress sync uses timestamps; if the clocks of the devices disagree, an older state can win.
 * A player that only pauses (e.g. Emby for Android) is reported as stopped by Emby after about a minute of idling,
