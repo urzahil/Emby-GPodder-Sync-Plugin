@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>Emby.GPodderSync</AssemblyName>
     <RootNamespace>Emby.GPodderSync</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -18,6 +18,11 @@
     <PackageReference Include="System.Memory" Version="4.6.0" ExcludeAssets="runtime" />
     <!-- Compile-time only: Emby Server ships System.Text.Json at runtime. -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Plugin icon shown on Emby's Plugins page (served by Plugin.GetThumbImage). -->
+    <EmbeddedResource Include="thumb.png" LogicalName="Emby.GPodderSync.thumb.png" />
   </ItemGroup>
 
 </Project>
