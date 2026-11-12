@@ -22,7 +22,8 @@ AntennaPod ──gpodder sync──► gpodder server ◄──gpodder sync─�
 ## Target
 
 * Built against **Emby Server 4.9.x** (`MediaBrowser.Server.Core` **4.9.1.90**, `netstandard2.0`).
-* There is **no settings page**. Configuration is a file.
+* Settings page under *Dashboard → Plugins → gPodder Sync*. The settings are stored in an XML file and apply as soon as
+  you save, without restarting Emby.
 
 ## Build
 
@@ -40,20 +41,25 @@ get the DLL attached by GitHub Actions.
 
 1. Stop Emby Server.
 2. Copy `Emby.GPodderSync.dll` into the Emby `plugins` folder (Windows: `%AppData%\Emby-Server\programdata\plugins`).
-3. Start Emby once. The plugin writes its config file and logs the path, normally
-   `programdata\plugins\configurations\Emby.GPodderSync.xml`. Stop Emby again.
-4. Edit that file:
+3. Start Emby and open *Dashboard → Plugins → gPodder Sync*:
 
    | Setting | Meaning |
    |---|---|
-   | `ServerUrl` | Address of the gpodder server as Emby reaches it, e.g. `http://homeserver:8080`. Use the exact address the server answers on: the plugin doesn't follow redirects (say from `http://` to `https://`) and reports them as an error naming the right address |
-   | `Username` / `Password` | gpodder login. Plain text in this file — keep it private |
-   | `DeviceId` | Device name this Emby uses on the server; default `emby` |
-   | `SyncEmbyUsers` | Comma-separated Emby user names to sync; empty = all users. All of them share the one gpodder account |
-   | `FinishedRemainingSeconds` / `FinishedRatio` | When an episode counts as finished: default 30 s left or 95 % played |
+   | Server URL | Address of the gpodder server as Emby reaches it, e.g. `http://homeserver:8080`. Use the exact address the server answers on: the plugin doesn't follow redirects (say from `http://` to `https://`) and reports them as an error naming the right address |
+   | Username / Password | gpodder login. Stored in plain text in the settings file — keep it private |
+   | Device id *(advanced)* | Device name this Emby uses on the server; default `emby` |
+   | Emby users | Comma-separated Emby user names to sync; empty = all users. All of them share the one gpodder account |
+   | Finished when … seconds are left / … percentage was played *(advanced)* | When an episode counts as finished: default 30 s left or 95 % played |
 
-5. Start Emby. *Dashboard → Scheduled Tasks → gPodder Sync → Sync podcast progress* runs at startup and every 5
-   minutes; run it by hand to sync right away.
+   Save applies the settings straight away and starts a sync. No restart needed.
+
+4. *Dashboard → Scheduled Tasks → gPodder Sync → Sync podcast progress* runs at startup and every 5 minutes; run it by
+   hand to sync right away.
+
+The settings are stored in `programdata\plugins\configurations\Emby.GPodderSync.xml` (the plugin logs the path at
+startup), the same file earlier versions used, so existing settings are kept. You can still edit it by hand
+(`ServerUrl`, `Username`, `Password`, `DeviceId`, `SyncEmbyUsers`, `FinishedRemainingSeconds`, `FinishedRatio`); changes
+are picked up within a few seconds while Emby runs.
 
 ## Known limitations
 
@@ -71,9 +77,10 @@ get the DLL attached by GitHub Actions.
 
 ```
 src/Emby.GPodderSync.csproj  netstandard2.0, MediaBrowser.Server.Core 4.9.1.90
-src/Plugin.cs                BasePlugin<PluginConfiguration> (no UI pages)
+src/Plugin.cs                BasePluginSimpleUI<PluginOptions>; reads and writes Emby.GPodderSync.xml, reloads it on change
 src/PluginConfiguration.cs   settings stored in Emby.GPodderSync.xml
-src/EntryPoint.cs            creates the config file; sends Emby progress to the gpodder server
+src/PluginOptions.cs         what the settings page shows, copied from/to PluginConfiguration
+src/EntryPoint.cs            creates the settings file; sends Emby progress to the gpodder server
 src/SyncTask.cs              scheduled task: applies the server's progress to Emby items
 src/FeedIndex.cs             episode URL → feed URL map, built from the subscribed feeds
 src/GPodderClient.cs         gpodder v2 calls and RSS enclosure reading

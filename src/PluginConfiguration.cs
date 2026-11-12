@@ -3,8 +3,9 @@ using MediaBrowser.Model.Plugins;
 namespace Emby.GPodderSync
 {
     /// <summary>
-    /// Stored by Emby as XML (plugins/configurations/Emby.GPodderSync.xml). There is no settings page:
-    /// edit that file while Emby is stopped, then start Emby. A default file is written on first start.
+    /// Stored as XML (plugins/configurations/Emby.GPodderSync.xml). Edit it on the settings page (Dashboard → Plugins →
+    /// gPodder Sync, see <see cref="PluginOptions"/>) or by hand; either way changes apply without restarting Emby.
+    /// A default file is written on first start.
     /// The password is kept in plain text in that file; the plugin never logs it.
     /// </summary>
     public class PluginConfiguration : BasePluginConfiguration

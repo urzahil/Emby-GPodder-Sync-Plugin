@@ -53,7 +53,7 @@ namespace Emby.GPodderSync
             var cfg = Plugin.Instance.Configuration;
             if (!GPodderClient.IsConfigured(cfg))
             {
-                _log.Warn("sync skipped: ServerUrl, Username or Password missing in the configuration file.");
+                _log.Warn("sync skipped: server URL, username or password not set (Dashboard → Plugins → gPodder Sync).");
                 return;
             }
 
