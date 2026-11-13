@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Entities;
@@ -43,16 +42,14 @@ namespace Emby.GPodderSync
 
         private void EnsureConfigFile()
         {
+            // Reading the settings creates the file (with defaults) if it does not exist yet.
             var plugin = Plugin.Instance;
-            if (!File.Exists(plugin.ConfigurationFilePath))
-            {
-                plugin.SaveConfiguration();
-            }
+            var cfg = plugin.Configuration;
 
             _log.Info("configuration file is {0}", plugin.ConfigurationFilePath);
-            if (!GPodderClient.IsConfigured(plugin.Configuration))
+            if (!GPodderClient.IsConfigured(cfg))
             {
-                _log.Warn("not configured yet. Stop Emby, fill in ServerUrl, Username and Password in that file, then start Emby.");
+                _log.Warn("not configured yet. Enter the server URL, username and password in Dashboard → Plugins → gPodder Sync (no restart needed).");
             }
         }
 
