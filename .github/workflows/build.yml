@@ -12,9 +12,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      # Writing is only needed to attach the DLL to a release, i.e. on tag builds (x.y.z).
-      contents: ${{ github.ref_type == 'tag' && 'write' || 'read' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -32,8 +29,19 @@ jobs:
         with:
           name: Emby.GPodderSync
           path: src/bin/Release/netstandard2.0/Emby.GPodderSync.dll
+
+  release:
+    # Only tag builds (x.y.z) publish a release, and only this job may write to the repository.
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Emby.GPodderSync
       - name: Attach the DLL to the release
-        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: src/bin/Release/netstandard2.0/Emby.GPodderSync.dll
+          files: Emby.GPodderSync.dll
