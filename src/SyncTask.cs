@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -22,6 +23,20 @@ namespace Emby.GPodderSync
         private readonly IUserManager _users;
         private readonly IUserDataManager _userData;
         private readonly ILogger _log;
+
+        // What this task last imported per (user, episode): the play action's timestamp and when the import happened.
+        // Emby may stamp its own state with the import time, which would otherwise look like fresh listening in Emby and
+        // make a later, delayed upload from another device (offline phone) lose against our own import.
+        private static readonly ConcurrentDictionary<string, ImportRecord> Imports = new ConcurrentDictionary<string, ImportRecord>(StringComparer.Ordinal);
+        private static readonly TimeSpan ImportStampSlack = TimeSpan.FromSeconds(10);
+        private static bool _warnedPlainHttp;
+        private static string _warnedFinishedValues;
+
+        private sealed class ImportRecord
+        {
+            public DateTime PlayTimestamp;
+            public DateTime ImportedAtUtc;
+        }
 
         public SyncTask(ILibraryManager library, IUserManager users, IUserDataManager userData, ILogManager logManager)
         {
@@ -57,6 +72,7 @@ namespace Emby.GPodderSync
                 return;
             }
 
+            WarnAboutConfiguration(cfg);
             var client = new GPodderClient(cfg);
             await client.RegisterDeviceAsync(cancellationToken).ConfigureAwait(false);
             progress.Report(10);
@@ -83,6 +99,7 @@ namespace Emby.GPodderSync
             foreach (var play in plays)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                FeedIndex.RememberTotal(play.Episode, play.Total);
                 if (string.Equals(play.Device, ownDevice, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;   // the latest word on this episode came from Emby itself
@@ -108,19 +125,57 @@ namespace Emby.GPodderSync
                 plays.Count, notInEmby, items.Count, applied, users.Count);
             if (plays.Count > 0 && items.Count == 0)
             {
-                _log.Warn("Emby has no audio items whose path is an http(s) URL, so nothing can be matched. Check how your podcast plugin stores episodes.");
+                _log.Warn("Emby has no audio or video items whose path is an http(s) URL, so nothing can be matched. Check how your podcast plugin stores episodes.");
             }
 
             progress.Report(100);
         }
 
-        /// <summary>Emby audio items played straight from a URL (what a podcast plugin creates from an RSS feed), by that URL.</summary>
+        private void WarnAboutConfiguration(PluginConfiguration cfg)
+        {
+            var problems = new List<string>();
+            if (cfg.FinishedRatio <= 0 || cfg.FinishedRatio > 100)
+            {
+                problems.Add("FinishedRatio " + cfg.FinishedRatio + " is not a fraction between 0 and 1; using 0.95.");
+            }
+            else if (cfg.FinishedRatio > 1)
+            {
+                problems.Add("FinishedRatio " + cfg.FinishedRatio + " looks like a percentage; reading it as " + cfg.FinishedRatio / 100 + ".");
+            }
+
+            if (cfg.FinishedRemainingSeconds < 0)
+            {
+                problems.Add("FinishedRemainingSeconds " + cfg.FinishedRemainingSeconds + " is negative; using 0.");
+            }
+
+            var report = string.Join(" ", problems);
+            if (report != (_warnedFinishedValues ?? string.Empty))
+            {
+                _warnedFinishedValues = report;
+                if (report.Length > 0)
+                {
+                    _log.Warn("{0}", report);
+                }
+            }
+
+            if (!_warnedPlainHttp)
+            {
+                var url = GPodderClient.ServerUrlOf(cfg);
+                if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && Uri.TryCreate(url, UriKind.Absolute, out var uri) && !uri.IsLoopback)
+                {
+                    _warnedPlainHttp = true;
+                    _log.Warn("ServerUrl uses plain http:// to a non-local-host address: the gpodder password is sent unencrypted with every request.");
+                }
+            }
+        }
+
+        /// <summary>Emby items played straight from a URL (what a podcast plugin creates from an RSS feed), by that URL.</summary>
         private Dictionary<string, BaseItem> PodcastItemsByUrl()
         {
             var query = new InternalItemsQuery
             {
                 Recursive = true,
-                MediaTypes = new[] { "Audio" },
+                MediaTypes = new[] { "Audio", "Video" },   // video podcasts too
                 PathStartsWithAny = new[] { "http://", "https://" },
             };
 
@@ -141,7 +196,14 @@ namespace Emby.GPodderSync
         private bool Apply(User user, BaseItem item, PlayAction play, PluginConfiguration cfg)
         {
             var data = _userData.GetUserData(user, item);
+            var key = user.Name + "\n" + play.Episode;
             var embyChanged = data.PlaystateLastModified ?? data.LastPlayedDate;
+            if (embyChanged.HasValue && Imports.TryGetValue(key, out var imported)
+                && embyChanged.Value.UtcDateTime <= imported.ImportedAtUtc + ImportStampSlack)
+            {
+                // The state was last touched by our own import: its real age is the play action's timestamp.
+                embyChanged = new DateTimeOffset(imported.PlayTimestamp, TimeSpan.Zero);
+            }
 
             // Emby only "wins" if the user really listened there. A fresh item's state timestamp (set when the item was
             // created) must not outrank older listening on another device.
@@ -152,7 +214,8 @@ namespace Emby.GPodderSync
             }
 
             var finished = play.Total > 0
-                && (play.Position >= play.Total - cfg.FinishedRemainingSeconds || (double)play.Position / play.Total >= cfg.FinishedRatio);
+                && (play.Position >= play.Total - GPodderClient.FinishedRemainingSecondsOf(cfg)
+                    || (double)play.Position / play.Total >= GPodderClient.FinishedRatioOf(cfg));
             if (finished)
             {
                 if (data.Played && data.PlaybackPositionTicks == 0)
@@ -181,7 +244,9 @@ namespace Emby.GPodderSync
             }
 
             data.LastPlayedDate = play.Timestamp.HasValue ? new DateTimeOffset(play.Timestamp.Value, TimeSpan.Zero) : DateTimeOffset.UtcNow;
+            var importedAt = DateTime.UtcNow;
             _userData.SaveUserData(user, item, data, UserDataSaveReason.Import, CancellationToken.None);
+            Imports[key] = new ImportRecord { PlayTimestamp = (play.Timestamp ?? importedAt), ImportedAtUtc = importedAt };
             _log.Info("'{0}' for {1}: {2} (from {3})", item.Name, user.Name, finished ? "played" : play.Position + "s", play.Device);
             return true;
         }

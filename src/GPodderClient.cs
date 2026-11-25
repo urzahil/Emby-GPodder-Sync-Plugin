@@ -32,14 +32,21 @@ namespace Emby.GPodderSync
         private const string TimestampFormat = "yyyy-MM-dd'T'HH:mm:ss";
 
         // One HttpClient for the lifetime of the server, as recommended. Used for RSS feeds, which may redirect.
-        private static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        private static readonly HttpClient Http = CreateClient(new HttpClient { Timeout = TimeSpan.FromSeconds(30) });
 
         // gpodder API calls don't follow redirects: HttpClient would turn a redirected POST into a GET and drop the
         // login, so the server answers 405 or 401 and the real problem (a wrong ServerUrl) stays hidden.
-        private static readonly HttpClient Api = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        private static readonly HttpClient Api = CreateClient(new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
         {
             Timeout = TimeSpan.FromSeconds(30)
-        };
+        });
+
+        private static HttpClient CreateClient(HttpClient client)
+        {
+            // Several podcast hosts and CDNs answer 403 to requests without a User-Agent.
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Emby.GPodderSync/0.1.2");
+            return client;
+        }
 
         private readonly string _base;
         private readonly string _user;
@@ -84,8 +91,11 @@ namespace Emby.GPodderSync
             }
         }
 
-        /// <summary>POST /api/2/episodes/{user}.json with one "play" action.</summary>
-        public Task PostPlayAsync(string podcast, string episode, int position, int total, CancellationToken ct)
+        /// <summary>
+        /// POST /api/2/episodes/{user}.json with one "play" action. eventTimeUtc is when the Emby event happened, not when
+        /// the request is made: a delayed send must not look newer than a later one.
+        /// </summary>
+        public Task PostPlayAsync(string podcast, string episode, int position, int total, DateTime eventTimeUtc, CancellationToken ct)
         {
             var action = new Dictionary<string, object>
             {
@@ -93,7 +103,7 @@ namespace Emby.GPodderSync
                 ["episode"] = episode,
                 ["device"] = _deviceId,
                 ["action"] = "play",
-                ["timestamp"] = DateTime.UtcNow.ToString(TimestampFormat, CultureInfo.InvariantCulture),
+                ["timestamp"] = eventTimeUtc.ToUniversalTime().ToString(TimestampFormat, CultureInfo.InvariantCulture),
                 ["started"] = 0,
                 ["position"] = position,
                 ["total"] = total,
@@ -154,19 +164,68 @@ namespace Emby.GPodderSync
             return latest.Values.ToList();
         }
 
-        /// <summary>Downloads an RSS feed (without the gpodder login: feeds may live on other hosts) and returns its enclosure URLs.</summary>
-        public static async Task<List<string>> GetEnclosureUrlsAsync(string feedUrl, CancellationToken ct)
+        /// <summary>
+        /// Downloads an RSS feed (without the gpodder login: feeds may live on other hosts) and returns its enclosures:
+        /// the audio URL plus the episode's itunes:duration when the feed has one.
+        /// </summary>
+        public static async Task<List<FeedEnclosure>> GetEnclosuresAsync(string feedUrl, CancellationToken ct)
         {
             using (var response = await Http.GetAsync(feedUrl, ct).ConfigureAwait(false))
             {
                 response.EnsureSuccessStatusCode();
                 var xml = XDocument.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
-                return xml.Descendants("enclosure")
-                    .Select(e => (string)e.Attribute("url"))
-                    .Where(u => !string.IsNullOrEmpty(u))
-                    .ToList();
+                var list = new List<FeedEnclosure>();
+                foreach (var e in xml.Descendants("enclosure"))
+                {
+                    var url = (string)e.Attribute("url");
+                    if (string.IsNullOrEmpty(url))
+                    {
+                        continue;
+                    }
+
+                    var duration = e.Parent?.Elements().FirstOrDefault(x => x.Name.LocalName == "duration")?.Value;
+                    list.Add(new FeedEnclosure { Url = url, DurationSeconds = ParseDuration(duration) });
+                }
+
+                return list;
             }
         }
+
+        /// <summary>itunes:duration is "SS", "MM:SS" or "HH:MM:SS" (sometimes with decimals). 0 when missing or unreadable.</summary>
+        public static int ParseDuration(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s))
+            {
+                return 0;
+            }
+
+            double total = 0;
+            foreach (var part in s.Trim().Split(':'))
+            {
+                if (!double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out var n) || n < 0)
+                {
+                    return 0;
+                }
+
+                total = total * 60 + n;
+            }
+
+            return total > 0 && total < int.MaxValue ? (int)total : 0;
+        }
+
+        /// <summary>FinishedRatio as a usable fraction: 95 is read as 95 %, anything else outside (0, 1] falls back to 0.95.</summary>
+        public static double FinishedRatioOf(PluginConfiguration cfg)
+        {
+            var r = cfg.FinishedRatio;
+            if (r > 1 && r <= 100)
+            {
+                r /= 100;
+            }
+
+            return r > 0 && r <= 1 ? r : 0.95;
+        }
+
+        public static int FinishedRemainingSecondsOf(PluginConfiguration cfg) => Math.Max(0, cfg.FinishedRemainingSeconds);
 
         private async Task<string> SendAsync(HttpMethod method, string path, string json, CancellationToken ct)
         {
@@ -185,7 +244,7 @@ namespace Emby.GPodderSync
                     {
                         var target = response.Headers.Location == null
                             ? "(no Location header)"
-                            : new Uri(request.RequestUri, response.Headers.Location).ToString();
+                            : FeedIndex.RedactKey(new Uri(request.RequestUri, response.Headers.Location).ToString());
                         throw new HttpRequestException(
                             $"{method} {path} was redirected (HTTP {status}) to {target}. Set ServerUrl to the address the server redirects to.");
                     }
