@@ -3,27 +3,37 @@ name: build
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      # Writing is only needed to attach the DLL to a release, i.e. on tag builds (x.y.z).
+      contents: ${{ github.ref_type == 'tag' && 'write' || 'read' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - run: dotnet build src/Emby.GPodderSync.csproj -c Release
+      - name: Build
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            # The tag is the version, so the DLL never carries a stale number from the csproj.
+            dotnet build src/Emby.GPodderSync.csproj -c Release -p:Version="$GITHUB_REF_NAME"
+          else
+            dotnet build src/Emby.GPodderSync.csproj -c Release
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: Emby.GPodderSync
           path: src/bin/Release/netstandard2.0/Emby.GPodderSync.dll
       - name: Attach the DLL to the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           files: src/bin/Release/netstandard2.0/Emby.GPodderSync.dll

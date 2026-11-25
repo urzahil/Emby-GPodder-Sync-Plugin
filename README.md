@@ -58,7 +58,10 @@ get the DLL attached by GitHub Actions.
 ## Known limitations
 
 * **Marking an episode unplayed is not synced**, in either direction (gpodder clients can't clear progress).
-* Episodes are matched only by exact audio URL. Different feed addresses for the same podcast .
+* Episodes are matched only by exact audio URL. If two feed addresses for the same podcast use different audio URLs,
+  their episodes are not matched.
+* Only items whose own path is an http(s) URL are matched on the pull side (audio and video); items that merely have an
+  http(s) media source are not.
 * The pull reads the whole action history each run; fine for one person's listening, not tuned for huge histories.
 * Progress sync uses timestamps; if the clocks of the devices disagree, an older state can win.
 * A player that only pauses (e.g. Emby for Android) is reported as stopped by Emby after about a minute of idling,
